@@ -199,8 +199,8 @@ def scrape_now():
     # args = sys.argv
     # police_file, kill_file = arg_parse(args)
 
-    police_file = "../police_keywords.txt"
-    kill_file = "../kill_keywords.txt"
+    police_file = "police_keywords.txt"
+    kill_file = "kill_keywords.txt"
 	
     police_keywords, kill_keywords = build_keywords(police_file), build_keywords(kill_file)
     key_combs = keyword_combs(police_keywords, kill_keywords)
