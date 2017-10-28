@@ -79,7 +79,7 @@ def get_response(url):
 
 
 # create table query
-#create table page_downloads(url text, downloadtime timestamp, status_code text, http_header text, page_content text, source text)
+# create table page_downloads(url text, downloadtime timestamp, status_code text, http_header text, page_content text, source text)
 
 def insert_entry(url, source):
     if url == '':
