@@ -1,4 +1,4 @@
-# gun-violence-event-analysis
+# Gun-violence-event-analysis
 
 
 Folders:
@@ -15,4 +15,6 @@ Folders:
 	2. Data Collection
 	   	a. Run gnews_scrape.py (collects google news results)
 	   	b. Run corpus/consolidated_page_downloader.py  (collects htmls)
+        3. Text Extraction
+	   	a. Use Lynx browser to extract text from the webpages collected
 		   
