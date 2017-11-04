@@ -1,5 +1,7 @@
 import re
+import ipdb
 import connector
+from unicodedata import category
 
 __author__ = "Sreejith Sreekumar"
 __email__ = "sreekumar.s@husky.neu.edu"
@@ -61,7 +63,6 @@ def filter_paras(paras):
             sl = len(str(sentence).split()) 
 
             if sl > 5 and sl < 200:
-                ipdb.set_trace() # 
                 final_paras.append(sentence)
 
 
@@ -74,11 +75,9 @@ def tokenize(line):
     Arguments:
     - `line`:
     """
-    line = ''.join(ch for ch in line if category(ch)[0] != 'P')
-    without_numbers = ' '.join(s for s in line.split() if not any(c.isdigit() for c in s))
-    
-    return line.lower().split()
-    
+    filter1 = [ch for ch in str(line) if category(ch)[0] != 'P']
+    return "".join([s for s in filter1 if not any(c.isdigit() for c in s)])
+
 
 
 cur.execute("""SELECT article from news_text""")
@@ -91,3 +90,8 @@ for article in rows:
     paragraphs = list(map(splittext_spacy, sentences_lynx))
     paragraphs = filter_paras(paragraphs)
 
+#    paragraphs = [p for p in paragraphs if len(p)>1]
+    foo = list(map(tokenize,paragraphs))
+    
+
+    
