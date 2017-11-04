@@ -29,7 +29,9 @@ def splittext_lynx(text):
     Arguments:
     - `text`:
     """
-    re_split_characters = "-|#|+|\*|\n\n"
+    re_split_characters = "-|#|\+|\*|\n\n"
+    
+
     sentences = re.split(re_split_characters, text)
     return sentences
     
@@ -46,14 +48,46 @@ def splittext_spacy(text):
 
 
 
+def filter_paras(paras):
+    """
+    
+    Arguments:
+    - `paras`:
+    """
+    final_paras = []
 
-cur.execute("""SELECT url from news_text""")
+    for para in paras:
+        for sentence in para:
+            sl = len(str(sentence).split()) 
+
+            if sl > 5 and sl < 200:
+                ipdb.set_trace() # 
+                final_paras.append(sentence)
+
+
+    return final_paras
+
+
+def tokenize(line):
+    """
+    
+    Arguments:
+    - `line`:
+    """
+    line = ''.join(ch for ch in line if category(ch)[0] != 'P')
+    without_numbers = ' '.join(s for s in line.split() if not any(c.isdigit() for c in s))
+    
+    return line.lower().split()
+    
+
+
+cur.execute("""SELECT article from news_text""")
 rows = cur.fetchall()
 
-for article in rows:
-    sentences_lynx = splittext_lynx(article)
-    sentences_spacy = splittext_spacy(article)
 
-    print(sentences_lynx)
-    print(sentences_spacy)
+for article in rows:
+    sentences_lynx = splittext_lynx(article[0])
+    
+    paragraphs = list(map(splittext_spacy, sentences_lynx))
+    paragraphs = filter_paras(paragraphs)
 
