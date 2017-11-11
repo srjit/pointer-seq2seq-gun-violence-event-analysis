@@ -62,6 +62,7 @@ def makeurl(q, relevance=False):
     args.append(('ned', 'us'))      # "regional edition" = "U.S. (English)"
     args.append(('num', '99'))      # ask for 99 results
     args.append(('tbm', 'nws'))     # news-only
+    args.append(('gl', 'US'))     # news-only
     
     if not relevance:
         args.append(('tbs', 'sbd:1'))  # relevance, not date, ranking
@@ -111,6 +112,9 @@ def extract_url(entry):
     google_url = links[0]['href']
     p = urlparse.urlparse(google_url)
     qargs = urlparse.parse_qs(p.query)
+
+    import ipdb;
+    ipdb.set_trace()
 
     url_ostensibly_list = qargs['url']
     softassert(len(url_ostensibly_list)==1, "bad number of url args in querystr")
@@ -203,11 +207,16 @@ def scrape_now():
     kill_file = "kill_keywords.txt"
 	
     police_keywords, kill_keywords = build_keywords(police_file), build_keywords(kill_file)
+
+    import ipdb
+
+
     key_combs = keyword_combs(police_keywords, kill_keywords)
-	
+
     for m in key_combs:
         for q in m:
             url = makeurl(' '.join(q))
+            ipdb.set_trace()            
             gourl(url, sorted(list(q)))
             time.sleep(SLEEP_TIME)
 
