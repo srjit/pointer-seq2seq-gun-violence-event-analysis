@@ -113,12 +113,11 @@ def extract_url(entry):
     p = urlparse.urlparse(google_url)
     qargs = urlparse.parse_qs(p.query)
 
-    import ipdb;
-    ipdb.set_trace()
-
-    url_ostensibly_list = qargs['url']
-    softassert(len(url_ostensibly_list)==1, "bad number of url args in querystr")
-    return url_ostensibly_list[0]
+    if len(qargs) > 0:
+        url_ostensibly_list = qargs['url']
+        softassert(len(url_ostensibly_list)==1, "bad number of url args in querystr")
+        return url_ostensibly_list[0]
+    return None
 
 
 def check_if_exists(url, keywords):
@@ -147,21 +146,23 @@ def check_if_exists(url, keywords):
 # 		print req.status_code
 
 # Create Table gnews_search_results(scrapetime timestamp, rss_id varchar(20), queryinfo varchar(30),url varchar(100),keywords varchar(100),entry varchar(400));
+# Create Table gnews_search_results(scrapetime timestamp, rss_id text, queryinfo text,url text,keywords text,entry text);
 
 def insert_entry(entry, queryinfo, keywords):
     entry = jsonsafe_feedparser_entry(entry)
     entry_json = json.dumps(entry)
     url = extract_url(entry)
 
-    cur = conn.cursor()
+    if url is not None:
+        cur = conn.cursor()
 
-    if check_if_exists(url, keywords):
-        return False
+    # if check_if_exists(url, keywords):
+    #     return False
 
-    cur.execute("""INSERT INTO """ + TABLE + """ (scrapetime,rss_id,queryinfo,url,keywords,entry) 
-    				values (now(), %s, %s, %s, %s, %s)""", 
-    				(entry['id'], json.dumps(queryinfo), url, [keywords], entry_json,) )
-    conn.commit()
+        cur.execute("""INSERT INTO """ + TABLE + """ (scrapetime,rss_id,queryinfo,url,keywords,entry) 
+                                    values (now(), %s, %s, %s, %s, %s)""", 
+                                    (entry['id'], json.dumps(queryinfo), url, [keywords], entry_json,) )
+        conn.commit()
     return True
 
 
@@ -203,12 +204,16 @@ def scrape_now():
     # args = sys.argv
     # police_file, kill_file = arg_parse(args)
 
-    police_file = "police_keywords.txt"
-    kill_file = "kill_keywords.txt"
+    # police_file = "police_keywords.txt"
+    # kill_file = "kill_keywords.txt"
 	
-    police_keywords, kill_keywords = build_keywords(police_file), build_keywords(kill_file)
+    # police_keywords, kill_keywords = build_keywords(police_file), build_keywords(kill_file)
 
-    import ipdb
+
+    ## comment to switch topics
+    gun_file = "gun_keywords.txt"
+    shooting_file = "shooting_keywords.txt"
+    police_keywords, kill_keywords = build_keywords(gun_file), build_keywords(shooting_file)
 
 
     key_combs = keyword_combs(police_keywords, kill_keywords)
@@ -216,7 +221,6 @@ def scrape_now():
     for m in key_combs:
         for q in m:
             url = makeurl(' '.join(q))
-            ipdb.set_trace()            
             gourl(url, sorted(list(q)))
             time.sleep(SLEEP_TIME)
 

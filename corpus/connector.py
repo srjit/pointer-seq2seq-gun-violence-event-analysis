@@ -13,7 +13,7 @@ __version__ = "0.0.1"
 
 cfg = config.read()
 host = cfg.get("postgres","host")
-database = "news"
+database = cfg.get("postgres","database")
 user = cfg.get("postgres","user")
 password = cfg.get("postgres","password")
 table = "gnews_search_results"
