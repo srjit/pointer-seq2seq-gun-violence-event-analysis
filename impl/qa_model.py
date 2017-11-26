@@ -55,6 +55,7 @@ class Encoder(object):
         masks_question, masks_passage = masks    
 
 
+
         # read passage conditioned upon the question
         with tf.variable_scope("encoded_question"):
             lstm_cell_question = tf.contrib.rnn.BasicLSTMCell(self.hidden_size, state_is_tuple = True)
@@ -211,6 +212,7 @@ class Decoder(object):
 
 
 class QASystem(object):    
+
     def __init__(self, encoder, decoder, pretrained_embeddings, config):
         """
         Initializes your System
@@ -331,6 +333,7 @@ class QASystem(object):
         """
         encoder = self.encoder
         decoder = self.decoder
+
         encoded_question, encoded_passage, q_rep, p_rep = encoder.encode([self.question, self.passage], [self.question_lengths, self.passage_lengths],
                                                              encoder_state_input = None)
 
@@ -397,13 +400,6 @@ class QASystem(object):
         '''
             Get the answers for dataset. Independent of how data iteration is implemented
         '''
-        # dataset[0] = dataset[0][:100]
-        # dataset[1] = dataset[1][:100]
-        # dataset[2] = dataset[2][:100]
-
-        import ipdb
-        ipdb.set_trace()
-
         yp, yp2 = self.test(session, dataset)
         # -- Boundary Model with a max span restriction of 15
         
@@ -452,9 +448,12 @@ class QASystem(object):
         sample = len(dataset)
 #        sample = 32
         a_s, a_o = self.answer(session, [q, c, a])
+
         answers = np.hstack([a_s.reshape([sample, -1]), a_o.reshape([sample,-1])])
         gold_answers = np.array([a for (_,_, a) in dataset])
 
+        # import ipdb
+        # ipdb.set_trace()
 
         em_score = 0
         em_1 = 0
@@ -484,14 +483,22 @@ class QASystem(object):
         nbatches = (len(train) + self.config.batch_size - 1) / self.config.batch_size
         prog = Progbar(target=nbatches)
 
+        total_loss = 0
 
         for i, (q_batch, c_batch, a_batch) in enumerate(minibatches(train, self.config.batch_size)):
+
 
             # at training time, dropout needs to be on.
             input_feed = self.get_feed_dict(q_batch, c_batch, a_batch, self.config.dropout_val)
 
             _, train_loss = session.run([self.train_op, self.loss], feed_dict=input_feed)
+            
+#            tf.summary.scalar("train loss", train_loss)
+
             prog.update(i + 1, [("train loss", train_loss)])
+            total_loss += train_loss
+
+        print(">>>>>>>", str(total_loss))
 
 
 
@@ -516,7 +523,17 @@ class QASystem(object):
         self.logger.info("\n#-----------Initial Exact match on dev set: %5.4f ---------------#\n" %em)
         #self.logger.info("#-----------Initial F1 on dev set: %5.4f ---------------#" %f1)
 
+
         best_em = 0
+
+#        summary_path = "summary"
+
+        #file_writer = tf.summary.FileWriter(summary_path, session.graph)
+
+#        writer2 = tf.summary.FileWriter(summary_path, graph=self.loss)
+#        writer3 = tf.summary.FileWriter(logs_path, graph=)
+        
+
 
         for epoch in range(self.config.num_epochs):
             self.logger.info("\n*********************EPOCH: %d*********************\n" %(epoch+1))

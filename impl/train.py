@@ -40,7 +40,7 @@ def run_func():
     decoder = Decoder(config.hidden_state_size)
 
     qa = QASystem(encoder, decoder, embeddings, config)
-    
+
     with tf.Session() as sess:
         # ====== Load a pretrained model if it exists or create a new one if no pretrained available ======
         qa.initialize_model(sess, config.train_dir)
