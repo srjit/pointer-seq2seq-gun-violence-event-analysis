@@ -1,5 +1,5 @@
 class Config:
-    num_epochs = 1
+    num_epochs = 2
     batch_size = 32
     train_embeddings=0
     max_gradient_norm=-1

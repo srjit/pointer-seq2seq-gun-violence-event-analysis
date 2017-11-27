@@ -1,6 +1,7 @@
 import time
+import re
 import logging
-
+import string
 import numpy as np
 import sys
 from six.moves import xrange  # pylint: disable=redefined-builtin
@@ -14,6 +15,10 @@ from attention_wrapper import *
 from evaluate import exact_match_score, f1_score
 from tensorflow.python import debug as tf_debug
 from tensorflow.python.ops import array_ops
+
+
+from collections import Counter
+import sys
 
 
 import matplotlib
@@ -213,7 +218,7 @@ class Decoder(object):
 
 class QASystem(object):    
 
-    def __init__(self, encoder, decoder, pretrained_embeddings, config):
+    def __init__(self, encoder, decoder, pretrained_embeddings, config, rev_vocab):
         """
         Initializes your System
 
@@ -234,7 +239,13 @@ class QASystem(object):
         self.encoder = encoder
         self.decoder = decoder
         self.config = config
-
+        self.rev_vocab = rev_vocab
+        
+        self.avg_precision_scores = []
+        self.avg_recall_scores = []
+        self.avg_f1_scores = []
+        self.losses = []
+        self.em_scores = []
 
         self.setup_placeholders()
         
@@ -432,6 +443,41 @@ class QASystem(object):
         return (np.array(a_s), np.array(a_e))
 
 
+
+    def normalize_answer(self, s):
+        """Lower text and remove punctuation, articles and extra whitespace."""
+        def remove_articles(text):
+            return re.sub(r'\b(a|an|the)\b', ' ', text)
+
+        def white_space_fix(text):
+            return ' '.join(text.split())
+
+        def remove_punc(text):
+            exclude = set(string.punctuation)
+            return ''.join(ch for ch in text if ch not in exclude)
+
+        def lower(text):
+            return text.lower()
+
+        return white_space_fix(remove_articles(remove_punc(lower(s))))
+
+
+
+    
+    def calc_f1_score(prediction, ground_truth):
+        prediction_tokens = normalize_answer(prediction).split()
+        ground_truth_tokens = normalize_answer(ground_truth).split()
+        common = Counter(prediction_tokens) & Counter(ground_truth_tokens)
+        num_same = sum(common.values())
+        if num_same == 0:
+            return 0
+        precision = 1.0 * num_same / len(prediction_tokens)
+        recall = 1.0 * num_same / len(ground_truth_tokens)
+        f1 = (2 * precision * recall) / (precision + recall)
+        return (precision, recall, f1)
+
+
+
     def evaluate_model(self, session, dataset):
         """
 
@@ -452,8 +498,9 @@ class QASystem(object):
         answers = np.hstack([a_s.reshape([sample, -1]), a_o.reshape([sample,-1])])
         gold_answers = np.array([a for (_,_, a) in dataset])
 
-        # import ipdb
-        # ipdb.set_trace()
+        precision_scores = []
+        recall_scores = []
+        f1_scores = []
 
         em_score = 0
         em_1 = 0
@@ -466,12 +513,51 @@ class QASystem(object):
             if (s == gold_s and e == gold_e):
                 em_score += 1.0
 
+            ## calculation of F1 score
+            predicted_answer_range = c[i][s:e+1]
+            gold_answer_range = c[i][gold_s:gold_e+1]
+            
+            predicted_answer = " ".join([self.rev_vocab[idx].decode("utf-8") for idx in predicted_answer_range])
+            gold_answer = " ".join([self.rev_vocab[idx].decode("utf-8") for idx in gold_answer_range])
+ 
+
+            prediction_tokens = self.normalize_answer(predicted_answer).split()
+            ground_truth_tokens = self.normalize_answer(gold_answer).split()
+            common = Counter(prediction_tokens) & Counter(ground_truth_tokens)
+            num_same = sum(common.values())
+            if num_same == 0:
+                return 0
+            precision = 1.0 * num_same / len(prediction_tokens)
+            recall = 1.0 * num_same / len(ground_truth_tokens)
+            f1 = (2 * precision * recall) / (precision + recall)
+
+
+            # import ipdb
+            # ipdb.set_trace()
+
+#            (precision, recall, f1) = calc_f1_score(predicted_answer, gold_answer)
+            precision_scores.append(precision)
+            recall_scores.append(recall)
+            f1_scores.append(f1)
+        
+
         em_1 /= float(len(answers))
         em_2 /= float(len(answers))
         self.logger.info("\nExact match on 1st token: %5.4f | Exact match on 2nd token: %5.4f\n" %(em_1, em_2))
 
         em_score /= float(len(answers))
 
+        avg_precision_score = sum(precision_scores) / len(precision_scores)
+        avg_recall_score = sum(recall_scores) / len(recall_scores)
+
+        avg_f1_score = sum(f1_scores)/len(f1_scores)
+
+        self.avg_precision_scores.append(avg_precision_score)
+        self.avg_recall_scores.append(avg_recall_score)
+        self.avg_f1_scores.append(avg_f1_score)
+        self.em_scores.append(em_score)
+        
+        print("F1 score:", avg_f1_score)
         return em_score
 
 
@@ -498,6 +584,7 @@ class QASystem(object):
             prog.update(i + 1, [("train loss", train_loss)])
             total_loss += train_loss
 
+        self.losses.append(total_loss)
         print(">>>>>>>", str(total_loss))
 
 
@@ -547,3 +634,36 @@ class QASystem(object):
                 self.saver.save(session, "%s/best_model.chk" %train_dir)
                 best_em = em
 
+
+        
+        print("Losses:")
+        print(self.losses)
+        print("Precision Scores:")
+        print(self.avg_precision_scores)
+        print("Recall Scores:")
+        print(self.avg_recall_scores)
+        print("F1 scores:")
+        print(self.avg_f1_scores)
+        print("Exact Match Scores")
+        print(self.em_scores)
+
+
+        with open("summary.txt", "w") as f:
+            f.write("Losses:" + "\n")
+            f.write(self.losses)
+            f.write("\n")
+
+            f.write("Precision Scores:" + "\n")
+            f.write(self.avg_precision_scores)
+            fwrite("\n")
+
+            f.write("Recall Scores:" + "\n")
+            f.write(self.avg_recall_scores)
+            fwrite("\n")
+
+            f.write("F1 Scores" + "\n")
+            f.write(self.avg_f1_scores)
+            f.write("\n")
+
+            f.write("Exact Match Scores" + "\n")
+            f.write(self.em_scores)
