@@ -54,7 +54,7 @@ def _pad_sequences(sequences, pad_tok, max_length):
         a list of list where each sublist has same length
     """
     sequence_padded, sequence_length = [], []
-
+    
     for seq in sequences:
         seq = list(seq)
         seq_ = seq[:max_length] + [pad_tok]*max(max_length - len(seq), 0)
@@ -73,6 +73,7 @@ def pad_sequences(sequences, pad_tok):
         a list of list where each sublist has same length
     """
     max_length = max([len(x) for x in sequences])
+
     sequence_padded, sequence_length = _pad_sequences(sequences, 
                                             pad_tok, max_length)
 

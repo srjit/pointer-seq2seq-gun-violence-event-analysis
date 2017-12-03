@@ -20,6 +20,7 @@ from tensorflow.python.ops import array_ops
 from collections import Counter
 import sys
 
+from sklearn.metrics import precision_recall_curve
 
 import matplotlib
 matplotlib.use('Agg')
@@ -355,7 +356,7 @@ class QASystem(object):
             self.logger.info("\n========Using Vanilla LSTM=========\n")
             logits = decoder.decode_lstm([encoded_question, encoded_passage], q_rep, [self.question_lengths, self.passage_lengths], self.labels)
 
-
+         
         self.logits = logits
 
 
@@ -412,11 +413,14 @@ class QASystem(object):
             Get the answers for dataset. Independent of how data iteration is implemented
         '''
         yp, yp2 = self.test(session, dataset)
+
         # -- Boundary Model with a max span restriction of 15
         
         def func(y1, y2):
             max_ans = -999999
             a_s, a_e= 0,0
+            score_a_s, score_a_e = 0,0
+
             num_classes = len(y1)
             for i in range(num_classes):
                 for j in range(15):
@@ -425,22 +429,32 @@ class QASystem(object):
 
                     curr_a_s = y1[i];
                     curr_a_e = y2[i+j]
+
                     if (curr_a_e+curr_a_s) > max_ans:
                         max_ans = curr_a_e + curr_a_s
                         a_s = i
                         a_e = i+j
+                        score_a_s = curr_a_s
+                        score_a_e = curr_a_e
 
-            return (a_s, a_e)
+            return (a_s, a_e, score_a_s, score_a_e)
 
 
-        a_s, a_e = [], []
+        a_s, a_e, score_a_s, score_a_e = [], [], [], []
+
         for i in range(yp.shape[0]):
-            _a_s, _a_e = func(yp[i], yp2[i])
+
+            _a_s, _a_e, _score_a_s, _score_a_e = func(yp[i], yp2[i])
+
             a_s.append(_a_s)
             a_e.append(_a_e)
+            score_a_s.append(_score_a_s)
+            score_a_e.append(_score_a_e)
+            
+
  
 
-        return (np.array(a_s), np.array(a_e))
+        return (np.array(a_s), np.array(a_e), np.array(score_a_s), np.array(score_a_e))
 
 
 
@@ -493,7 +507,17 @@ class QASystem(object):
 
         sample = len(dataset)
 #        sample = 32
-        a_s, a_o = self.answer(session, [q, c, a])
+
+        a_s, a_o, score_a_s, score_a_e = self.answer(session, [q, c, a])
+
+        gold_start_pointers = [start for [start, end] in a]
+        gold_end_pointers = [end for [start, end] in a]
+
+
+        precision, recall, _ = precision_recall_curve(gold_start_pointers, score_a_s)
+        
+        import ipdb
+        ipdb.set_trace()
 
         answers = np.hstack([a_s.reshape([sample, -1]), a_o.reshape([sample,-1])])
         gold_answers = np.array([a for (_,_, a) in dataset])
@@ -505,6 +529,8 @@ class QASystem(object):
         em_score = 0
         em_1 = 0
         em_2 = 0
+
+
         for i in range(sample):
             gold_s, gold_e = gold_answers[i]
             s, e = answers[i]
@@ -516,30 +542,45 @@ class QASystem(object):
             ## calculation of F1 score
             predicted_answer_range = c[i][s:e+1]
             gold_answer_range = c[i][gold_s:gold_e+1]
-            
+
             predicted_answer = " ".join([self.rev_vocab[idx].decode("utf-8") for idx in predicted_answer_range])
             gold_answer = " ".join([self.rev_vocab[idx].decode("utf-8") for idx in gold_answer_range])
- 
+
 
             prediction_tokens = self.normalize_answer(predicted_answer).split()
             ground_truth_tokens = self.normalize_answer(gold_answer).split()
             common = Counter(prediction_tokens) & Counter(ground_truth_tokens)
             num_same = sum(common.values())
-            if num_same == 0:
-                return 0
-            precision = 1.0 * num_same / len(prediction_tokens)
-            recall = 1.0 * num_same / len(ground_truth_tokens)
-            f1 = (2 * precision * recall) / (precision + recall)
+            precision = 0
+            recall = 0
+            f1 = 0
 
 
-            # import ipdb
-            # ipdb.set_trace()
+#             p = tf.convert_to_tensor(prediction_tokens)
 
-#            (precision, recall, f1) = calc_f1_score(predicted_answer, gold_answer)
+#             import ipdb
+#             ipdb.set_trace()
+
+
+#            truth = tf.equal(prediction_tokens, ground_truth_tokens)
+#            match_count = tf.reduce_sum(tf.cast(truth, tf.float32))
+            
+#            import ipdb
+#            ipdb.set_trace()
+            # eq = tf.reduce_sum(tf.cast(tf.equal(prediction_tokens, ground_truth_tokens),tf.float32))
+
+            
+            if num_same != 0:
+                precision = 1.0 * num_same / len(prediction_tokens)
+                recall = 1.0 * num_same / len(ground_truth_tokens)
+                f1 = (2 * precision * recall) / (precision + recall)
+
+
             precision_scores.append(precision)
             recall_scores.append(recall)
             f1_scores.append(f1)
-        
+
+
 
         em_1 /= float(len(answers))
         em_2 /= float(len(answers))
@@ -547,13 +588,17 @@ class QASystem(object):
 
         em_score /= float(len(answers))
 
+        
+
         avg_precision_score = sum(precision_scores) / len(precision_scores)
         avg_recall_score = sum(recall_scores) / len(recall_scores)
 
         avg_f1_score = sum(f1_scores)/len(f1_scores)
 
+
         self.avg_precision_scores.append(avg_precision_score)
         self.avg_recall_scores.append(avg_recall_score)
+        self.avg_f1_scores.append(avg_f1_score)
         self.avg_f1_scores.append(avg_f1_score)
         self.em_scores.append(em_score)
         
@@ -650,20 +695,20 @@ class QASystem(object):
 
         with open("summary.txt", "w") as f:
             f.write("Losses:" + "\n")
-            f.write(self.losses)
+            f.write(str(self.losses))
             f.write("\n")
 
             f.write("Precision Scores:" + "\n")
-            f.write(self.avg_precision_scores)
-            fwrite("\n")
+            f.write(str(self.avg_precision_scores))
+            f.write("\n")
 
             f.write("Recall Scores:" + "\n")
-            f.write(self.avg_recall_scores)
-            fwrite("\n")
+            f.write(str(self.avg_recall_scores))
+            f.write("\n")
 
             f.write("F1 Scores" + "\n")
-            f.write(self.avg_f1_scores)
+            f.write(str(self.avg_f1_scores))
             f.write("\n")
 
             f.write("Exact Match Scores" + "\n")
-            f.write(self.em_scores)
+            f.write(str(self.em_scores))

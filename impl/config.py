@@ -1,5 +1,5 @@
 class Config:
-    num_epochs = 2
+    num_epochs = 25
     batch_size = 32
     train_embeddings=0
     max_gradient_norm=-1
@@ -9,8 +9,8 @@ class Config:
     vocab_path="data/squad/vocab.dat"
     embed_path="data/squad/glove.trimmed.300.npz"
     dropout_val=1.0
-    train_dir="models_lstm_basic"
-    use_match=0
+    train_dir="models_lstm_match"
+    use_match=1
     
 
     def get_paths(mode):
