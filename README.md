@@ -1,4 +1,4 @@
-# Gun-violence-event-analysis
+## Gun violence event analysis from news paper corpus using [Attention Mechanism](https://arxiv.org/abs/1706.03762) in Sequence to Sequence Networks & [Pointer Networks](https://arxiv.org/abs/1506.03134)
 
 
 ### Folders
