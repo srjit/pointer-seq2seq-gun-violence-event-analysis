@@ -1,12 +1,12 @@
 # Gun-violence-event-analysis
 
 
-###Folders
+### Folders
 
   - Corpus: Collect news from google news via rss feed filter them by keywords and add to a postgres database
 
 
-###Steps
+### Steps
 
 1. Postgres
 	a. Create database news in postgres
